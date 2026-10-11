@@ -914,28 +914,90 @@ test "corrupted input decodes like the reference" {
     }
 }
 
-test "a set bit past 32 is rejected" {
+/// Writes out the given 3-bit and 5-bit values as they are, valid or not.
+fn rawEncode(allocator: std.mem.Allocator, num_hashes: u24, normal: []const u8, exceptions: []const u8) ![]u8 {
+    const normal_size = (normal.len * 3 + 7) / 8;
+    const data = try allocator.alloc(u8, header_size + normal_size + (exceptions.len * 5 + 7) / 8);
+    @memset(data, 0);
+    data[0] = 1;
+    std.mem.writeInt(u24, data[1..4], num_hashes, .big);
+    for (normal, 0..) |value, i| writeBits(data[header_size..], i * 3, 3, value);
+    for (exceptions, 0..) |value, i| writeBits(data[header_size + normal_size ..], i * 5, 5, value);
+    return data;
+}
+
+const RawHash = struct { normal: []const u8, exceptions: []const u8 = &.{} };
+
+/// Valid hashes to surround a broken one with: one bit, and one bit ten
+/// places up, which takes an exception.
+const filler_hashes = [_]RawHash{
+    .{ .normal = &.{ 1, 0 } },
+    .{ .normal = &.{ 7, 0 }, .exceptions = &.{3} },
+};
+
+/// A stream of `before` valid hashes, `hash`, and `after` valid hashes, with
+/// or without exceptions in the valid ones.
+fn rawStream(allocator: std.mem.Allocator, before: usize, hash: RawHash, after: usize, fillers: []const RawHash) ![]u8 {
+    var normal: std.ArrayList(u8) = .empty;
+    defer normal.deinit(allocator);
+    var exceptions: std.ArrayList(u8) = .empty;
+    defer exceptions.deinit(allocator);
+    for (0..before + 1 + after) |i| {
+        const h = if (i == before) hash else fillers[i % fillers.len];
+        try normal.appendSlice(allocator, h.normal);
+        try exceptions.appendSlice(allocator, h.exceptions);
+    }
+    return rawEncode(allocator, @intCast(before + 1 + after), normal.items, exceptions.items);
+}
+
+test "a broken hash is rejected wherever it is" {
     const allocator = testing.allocator;
-    // Six distances of 6 reach 36, 7 + 26 reaches 33, and 6 * 5 + 1 + 2 does.
-    const cases = [_]struct { normal: []const u8, exceptions: []const u8 }{
-        .{ .normal = &.{ 6, 6, 6, 6, 6, 6, 0 }, .exceptions = &.{} },
-        .{ .normal = &.{ 7, 0 }, .exceptions = &.{26} },
-        .{ .normal = &.{ 6, 6, 6, 6, 6, 1, 2, 0 }, .exceptions = &.{} },
+    const cases = [_]struct { hash: RawHash, fillers: []const RawHash }{
+        // Six distances of 6 reach 36.
+        .{ .hash = .{ .normal = &.{ 6, 6, 6, 6, 6, 6, 0 } }, .fillers = &filler_hashes },
+        // 7 + 26 reaches 33.
+        .{ .hash = .{ .normal = &.{ 7, 0 }, .exceptions = &.{26} }, .fillers = &filler_hashes },
+        // 6 * 5 + 1 + 2 reaches 33.
+        .{ .hash = .{ .normal = &.{ 6, 6, 6, 6, 6, 1, 2, 0 } }, .fillers = &filler_hashes },
+        // A 7 with no exception left for it.
+        .{ .hash = .{ .normal = &.{ 7, 0 } }, .fillers = filler_hashes[0..1] },
     };
+    // Positions in the scalar tail, the vector path, and across the switch
+    // from one to the other, which happens with 32 hashes left.
+    const counts = [_]usize{ 0, 1, 15, 16, 17, 31, 32, 33, 100 };
     for (cases) |case| {
-        const normal_size = (case.normal.len * 3 + 7) / 8;
-        const data = try allocator.alloc(u8, header_size + normal_size + (case.exceptions.len * 5 + 7) / 8);
-        defer allocator.free(data);
-        @memset(data, 0);
-        data[0] = 1;
-        std.mem.writeInt(u24, data[1..4], 1, .big);
-        for (case.normal, 0..) |value, i| writeBits(data[header_size..], i * 3, 3, value);
-        for (case.exceptions, 0..) |value, i| writeBits(data[header_size + normal_size ..], i * 5, 5, value);
-        try testing.expectEqual(null, try referenceDecode(allocator, data));
-        try expectDecodeMatchesReference(data);
+        for (counts) |before| {
+            for (counts) |after| {
+                const data = try rawStream(allocator, before, case.hash, after, case.fillers);
+                defer allocator.free(data);
+                try testing.expectEqual(null, try referenceDecode(allocator, data));
+                try expectDecodeMatchesReference(data);
+
+                // The same stream with a valid hash in its place decodes.
+                const valid = try rawStream(allocator, before, case.fillers[0], after, case.fillers);
+                defer allocator.free(valid);
+                const decoded = (try referenceDecode(allocator, valid)).?;
+                allocator.free(decoded);
+                try expectDecodeMatchesReference(valid);
+            }
+        }
     }
     // 32 itself is fine: 6 * 5 + 2.
     try expectRoundTrip(1, &.{0x80000000 | 0x20820820});
+}
+
+test "a stream that runs out of terminators is rejected" {
+    const allocator = testing.allocator;
+    for ([_]usize{ 1, 16, 32, 33, 100 }) |num_hashes| {
+        const valid = try rawStream(allocator, 0, filler_hashes[0], num_hashes - 1, &filler_hashes);
+        defer allocator.free(valid);
+        // One hash more than there are, and room for it, but only 7s.
+        const data = try std.mem.concat(allocator, u8, &.{ valid, &@as([8]u8, @splat(0xFF)) });
+        defer allocator.free(data);
+        std.mem.writeInt(u24, data[1..4], @intCast(num_hashes + 1), .big);
+        try testing.expectEqual(null, try referenceDecode(allocator, data));
+        try expectDecodeMatchesReference(data);
+    }
 }
 
 test "a header the body cannot hold is rejected" {
@@ -982,3 +1044,4 @@ test "trailing bytes are ignored" {
         try testing.expectEqualSlices(u32, &.{ 1, 2, 3 }, decoded);
     }
 }
+
