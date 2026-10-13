@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The repository default is write-all, which every job here would otherwise
+# inherit while running code from the pull request.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Built for the runner's CPU, which tests both the PDEP/PEXT and
+          # AVX2 codec and the portable one, if the CPU has the former.
+          - name: x86_64
+            runs-on: ubuntu-latest
+            cpu: native
+          # Only the portable codec.
+          - name: x86_64 baseline
+            runs-on: ubuntu-latest
+            cpu: baseline
+          - name: aarch64
+            runs-on: ubuntu-24.04-arm
+            cpu: native
+    name: Test (${{ matrix.name }})
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Otherwise the token is left in .git/config, readable by the build
+          # and test code below. Nothing here pushes, so it is not needed.
+          persist-credentials: false
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Unit tests
+        run: zig build unit-tests -Dcpu=${{ matrix.cpu }} --summary all
