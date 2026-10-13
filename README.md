@@ -5,16 +5,31 @@ fingerprint database and [fpindex](https://github.com/acoustid/acoustid-index).
 
 Work in progress. So far it has:
 
-- an HTTP server (`src/server.zig`), with only a health check, that answers
-  in JSON or MessagePack like fpindex does,
-- the codec for Chromaprint's compressed fingerprint format
-  (`src/encoding.zig`), the format clients submit and the one fingerprints
-  are cached in,
+- an HTTP server (`src/server.zig`) that answers in JSON or MessagePack like
+  fpindex does,
+- the changelog feed fpindex nodes replicate from (`src/feed.zig`), under
+  `/fpindex`, read from the fingerprint database,
 - the query fpindex indexes a fingerprint under (`src/query.zig`), ported from
   pg_acoustid's `acoustid_extract_query` and tested against it with data from
   `zig build query-golden`,
+- the codec for Chromaprint's compressed fingerprint format
+  (`src/encoding.zig`), the format clients submit and the one fingerprints
+  are cached in,
 - the similarity score (`src/compare.zig`), tested against scores from the
   previous implementation with data from `tools/compare-golden`.
+
+## Running
+
+    fpstore --host 0.0.0.0 --port 4659 \
+        --postgres-host db --postgres-user acoustid --postgres-database acoustid
+
+The Postgres settings can also come from `FPSTORE_POSTGRES_HOST`, `_PORT`,
+`_USER`, `_PASSWORD` and `_DATABASE`, which is how the password is best given.
+Connections are opened as needed, so fpstore starts while the database is
+down; `/fpindex/_health` says whether it answers.
+
+An fpindex node replicates from it with
+`--coordinator-url http://<fpstore>:4659/fpindex`, without a trailing slash.
 
 ## Build
 
