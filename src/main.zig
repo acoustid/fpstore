@@ -95,5 +95,6 @@ pub fn main(init: std.process.Init.Minimal) !void {
 test {
     _ = @import("encoding.zig");
     _ = @import("compare.zig");
+    _ = @import("query.zig");
     _ = @import("server.zig");
 }

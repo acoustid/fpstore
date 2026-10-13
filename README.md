@@ -10,6 +10,9 @@ Work in progress. So far it has:
 - the codec for Chromaprint's compressed fingerprint format
   (`src/encoding.zig`), the format clients submit and the one fingerprints
   are cached in,
+- the query fpindex indexes a fingerprint under (`src/query.zig`), ported from
+  pg_acoustid's `acoustid_extract_query` and tested against it with data from
+  `zig build query-golden`,
 - the similarity score (`src/compare.zig`), tested against scores from the
   previous implementation with data from `tools/compare-golden`.
 

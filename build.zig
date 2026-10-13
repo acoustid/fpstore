@@ -37,6 +37,30 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the server");
     run_step.dependOn(&run_cmd.step);
 
+    // Generates src/testdata/query/golden.txt from pg_acoustid, see
+    // tools/query-golden/main.zig. Not part of the default build.
+    const query_golden = b.addExecutable(.{
+        .name = "query-golden",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/query-golden/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "zio", .module = zio_dep.module("zio") },
+                .{ .name = "pg", .module = pg_dep.module("pg") },
+                .{ .name = "encoding", .module = b.createModule(.{
+                    .root_source_file = b.path("src/encoding.zig"),
+                    .target = target,
+                    .optimize = optimize,
+                }) },
+            },
+        }),
+    });
+    const run_query_golden = b.addRunArtifact(query_golden);
+    run_query_golden.setCwd(b.path("."));
+    run_query_golden.addPassthruArgs();
+    b.step("query-golden", "Generate the query extraction test data from pg_acoustid").dependOn(&run_query_golden.step);
+
     const unit_tests = b.addTest(.{ .root_module = exe.root_module });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("unit-tests", "Run unit tests");
