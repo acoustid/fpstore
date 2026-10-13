@@ -7,6 +7,7 @@ pub fn build(b: *std.Build) void {
     const zio_dep = b.dependency("zio", .{ .target = target, .optimize = optimize });
     const dusty_dep = b.dependency("dusty", .{ .target = target, .optimize = optimize });
     const msgpack_dep = b.dependency("msgpack", .{ .target = target, .optimize = optimize });
+    const json_dep = b.dependency("json", .{ .target = target, .optimize = optimize });
     const pg_dep = b.dependency("pg", .{ .target = target, .optimize = optimize });
 
     // dusty's own zio import is a stub that makes it time requests out with a
@@ -23,6 +24,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "zio", .module = zio_dep.module("zio") },
                 .{ .name = "dusty", .module = dusty_dep.module("dusty") },
                 .{ .name = "msgpack", .module = msgpack_dep.module("msgpack") },
+                .{ .name = "json", .module = json_dep.module("json") },
                 .{ .name = "pg", .module = pg_dep.module("pg") },
             },
         }),

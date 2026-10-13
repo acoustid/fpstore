@@ -1,6 +1,7 @@
 const std = @import("std");
 const http = @import("dusty");
 const msgpack = @import("msgpack");
+const json = @import("json");
 
 pub const ServerContext = struct {
     pub fn uncaughtError(self: *ServerContext, req: *http.Request, res: *http.Response, err: anyerror) void {
@@ -68,16 +69,8 @@ fn sendError(req: *http.Request, res: *http.Response, err: anyerror) void {
 /// Serializes `value` in the negotiated format.
 fn respond(value: anytype, req: *http.Request, res: *http.Response) !void {
     switch (responseType(req)) {
-        .json => try res.json(value, .{}),
-        .msgpack => {
-            var body = res.writer();
-            msgpack.encode(value, &body.interface) catch |err| switch (err) {
-                error.WriteFailed => return body.err orelse error.Unexpected,
-                else => |e| return e,
-            };
-            try body.end();
-            try res.header("Content-Type", comptime http.ContentType.msgpack.toContentType());
-        },
+        .json => try res.encode(.json, json.encode, value),
+        .msgpack => try res.encode(.msgpack, msgpack.encode, value),
         else => unreachable,
     }
 }
