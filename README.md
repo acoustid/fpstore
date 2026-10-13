@@ -38,6 +38,15 @@ Requires Zig 0.17.
     zig build              # builds zig-out/bin/fpstore
     zig build run -- --port 4659
     zig build unit-tests   # unit tests
+    zig build e2e-tests    # end-to-end tests, needs Docker
+
+The end-to-end tests start Postgres and an fpindex node with
+`docker-compose.test.yml`, run the fpstore binary against them, and stop it all
+again. fpstore's output goes to `zig-out/e2e/fpstore.log`.
+
+Tests run through `test_runner.zig`, which gives every test a zio runtime of
+its own; tests take their Io from it (`@import("root").testIo()`), not from
+`std.testing.io`, which only the setup and teardown hooks use.
 
 The codec picks its implementation from the build target: PDEP/PEXT and AVX2
 on x86-64 CPUs that have them and do PDEP/PEXT in hardware (not AMD Zen 1/2),

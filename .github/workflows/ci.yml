@@ -46,3 +46,21 @@ jobs:
 
       - name: Unit tests
         run: zig build unit-tests -Dcpu=${{ matrix.cpu }} --summary all
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      # A hang shows up as a test that never returns, so this needs a bound
+      # of its own rather than the job's.
+      - name: End-to-end tests
+        timeout-minutes: 10
+        run: zig build e2e-tests --summary all

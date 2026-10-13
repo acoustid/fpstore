@@ -1,0 +1,43 @@
+# What the end-to-end tests run against, started and stopped by them
+# (tests/all_tests.zig): the fingerprint database, and an fpindex node
+# replicating from the fpstore the tests start on port 14660.
+#
+# Host networking, so fpindex reaches that fpstore on 127.0.0.1, with ports
+# of their own so nothing on the default ones gets in the way.
+
+services:
+  postgres:
+    image: ghcr.io/acoustid/postgres:pg17.4-main-00c3a23
+    network_mode: host
+    command: ["postgres", "-p", "15433", "-c", "listen_addresses=127.0.0.1", "-c", "fsync=off"]
+    environment:
+      POSTGRES_USER: acoustid
+      POSTGRES_PASSWORD: acoustid
+      POSTGRES_DB: acoustid
+    volumes:
+      # After the image's own setup_db.sh, which creates the extensions.
+      - ./tests/schema.sql:/docker-entrypoint-initdb.d/zz_fpstore_schema.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "15433", "-U", "acoustid"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  fpindex:
+    image: ghcr.io/acoustid/acoustid-index:v26.8.2
+    network_mode: host
+    command:
+      - fpindex
+      - --dir
+      - /tmp/data
+      - --host
+      - 127.0.0.1
+      - --port
+      - "16081"
+      - --coordinator-url
+      - http://127.0.0.1:14660/fpindex
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:16081/_health"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

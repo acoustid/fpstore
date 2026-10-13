@@ -61,8 +61,42 @@ pub fn build(b: *std.Build) void {
     run_query_golden.addPassthruArgs();
     b.step("query-golden", "Generate the query extraction test data from pg_acoustid").dependOn(&run_query_golden.step);
 
-    const unit_tests = b.addTest(.{ .root_module = exe.root_module });
+    // Both test suites go through test_runner.zig, which runs every test in a
+    // zio runtime of its own.
+    const unit_tests = b.addTest(.{
+        .root_module = exe.root_module,
+        .test_runner = .{ .path = b.path("test_runner.zig"), .mode = .simple },
+    });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("unit-tests", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
+
+    // End-to-end tests, against the fpstore binary, with the database and an
+    // fpindex node from docker-compose.test.yml, which they start and stop.
+    const e2e_options = b.addOptions();
+    e2e_options.addOptionPath("fpstore_exe", exe.getEmittedBin());
+    const e2e_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/all_tests.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "zio", .module = zio_dep.module("zio") },
+                .{ .name = "dusty", .module = dusty_dep.module("dusty") },
+                .{ .name = "msgpack", .module = msgpack_dep.module("msgpack") },
+                .{ .name = "pg", .module = pg_dep.module("pg") },
+                .{ .name = "query", .module = b.createModule(.{
+                    .root_source_file = b.path("src/query.zig"),
+                    .target = target,
+                    .optimize = optimize,
+                }) },
+                .{ .name = "build_options", .module = e2e_options.createModule() },
+            },
+        }),
+        .test_runner = .{ .path = b.path("test_runner.zig"), .mode = .simple },
+    });
+    const run_e2e_tests = b.addRunArtifact(e2e_tests);
+    run_e2e_tests.setCwd(b.path("."));
+    run_e2e_tests.has_side_effects = true;
+    b.step("e2e-tests", "Run end-to-end tests (requires Docker)").dependOn(&run_e2e_tests.step);
 }
