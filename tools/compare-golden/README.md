@@ -2,7 +2,7 @@
 
 Generates `src/testdata/compare/`, which `src/compare.zig` is tested against:
 what go-acoustid's `AlignFingerprints` and `CompareFingerprints` give for pairs
-of fingerprints, and the orders Go's `sort.Slice` leaves offset peaks in.
+of fingerprints.
 
 The fingerprints are real ones from the AcoustID public data, those of tracks
 that got more than one new fingerprint on 2026-10-01, the ones in
