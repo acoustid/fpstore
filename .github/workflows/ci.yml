@@ -41,5 +41,8 @@ jobs:
         with:
           version: 0.17.0
 
+      - name: Build
+        run: zig build -Dcpu=${{ matrix.cpu }} --summary all
+
       - name: Unit tests
         run: zig build unit-tests -Dcpu=${{ matrix.cpu }} --summary all

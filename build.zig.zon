@@ -1,6 +1,24 @@
 .{
     .name = .fpstore,
     .version = "0.0.1",
+    .dependencies = .{
+        .zio = .{
+            .url = "git+https://github.com/lalinsky/zio.git#3c1c5d0b67514caca20aed646f2ad6bf261a10e2",
+            .hash = "zio-0.19.0-xHbVVLeXLADamdv-xiQM84sQyW5RAsa3jQiOhfME9Cro",
+        },
+        .dusty = .{
+            .url = "git+https://github.com/lalinsky/dusty.git#9014a53e04a33e1539b7e08225474d86b37c2938",
+            .hash = "dusty-0.4.0-Qdw7RlxnIwD-iVcoP24nHhckB9I0nYYk8r9B5PrECpiY",
+        },
+        .msgpack = .{
+            .url = "git+https://github.com/lalinsky/msgpack.zig.git#74700c6beee8140ef7703eaf721212c032f9d635",
+            .hash = "msgpack-0.9.0-ZOu9PA-7AgDIS3tb0i4YUniw2uFjqXgqEWkiVlDjuUoZ",
+        },
+        .pg = .{
+            .url = "git+https://github.com/lalinsky/pg.zig.git#734a53e1e2988f43326e9bf43171282ee66d6c85",
+            .hash = "pg-0.0.0-Wp_7gVkXBwDgChbOqlulDmLcKyDLjex9Ud7kogSkAqu0",
+        },
+    },
     .minimum_zig_version = "0.17.0",
     .paths = .{""},
     .fingerprint = 0x475d040a865a4063,

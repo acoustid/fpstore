@@ -5,6 +5,8 @@ fingerprint database and [fpindex](https://github.com/acoustid/acoustid-index).
 
 Work in progress. So far it has:
 
+- an HTTP server (`src/server.zig`), with only a health check, that answers
+  in JSON or MessagePack like fpindex does,
 - the codec for Chromaprint's compressed fingerprint format
   (`src/encoding.zig`), the format clients submit and the one fingerprints
   are cached in,
@@ -15,6 +17,8 @@ Work in progress. So far it has:
 
 Requires Zig 0.17.
 
+    zig build              # builds zig-out/bin/fpstore
+    zig build run -- --port 4659
     zig build unit-tests   # unit tests
 
 The codec picks its implementation from the build target: PDEP/PEXT and AVX2

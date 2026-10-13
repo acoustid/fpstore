@@ -4,13 +4,38 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const mod = b.addModule("fpstore", .{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
+    const zio_dep = b.dependency("zio", .{ .target = target, .optimize = optimize });
+    const dusty_dep = b.dependency("dusty", .{ .target = target, .optimize = optimize });
+    const msgpack_dep = b.dependency("msgpack", .{ .target = target, .optimize = optimize });
+    const pg_dep = b.dependency("pg", .{ .target = target, .optimize = optimize });
 
-    const unit_tests = b.addTest(.{ .root_module = mod });
+    // dusty's own zio import is a stub that makes it time requests out with a
+    // portable watchdog; with the real one it uses zio's cancellation.
+    dusty_dep.module("dusty").addImport("zio", zio_dep.module("zio"));
+
+    const exe = b.addExecutable(.{
+        .name = "fpstore",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "zio", .module = zio_dep.module("zio") },
+                .{ .name = "dusty", .module = dusty_dep.module("dusty") },
+                .{ .name = "msgpack", .module = msgpack_dep.module("msgpack") },
+                .{ .name = "pg", .module = pg_dep.module("pg") },
+            },
+        }),
+    });
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+    run_cmd.addPassthruArgs();
+    const run_step = b.step("run", "Run the server");
+    run_step.dependOn(&run_cmd.step);
+
+    const unit_tests = b.addTest(.{ .root_module = exe.root_module });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("unit-tests", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
