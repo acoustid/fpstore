@@ -6,7 +6,7 @@ fingerprint database and [fpindex](https://github.com/acoustid/acoustid-index).
 Work in progress. So far it has:
 
 - the codec for Chromaprint's compressed fingerprint format
-  (`src/chromaprint.zig`), the format clients submit and the one fingerprints
+  (`src/encoding.zig`), the format clients submit and the one fingerprints
   are cached in,
 - the similarity score (`src/compare.zig`), tested against scores from the
   previous implementation with data from `tools/compare-golden`.

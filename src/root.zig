@@ -1,4 +1,4 @@
-pub const chromaprint = @import("chromaprint.zig");
+pub const encoding = @import("encoding.zig");
 pub const compare = @import("compare.zig");
 
 test {
